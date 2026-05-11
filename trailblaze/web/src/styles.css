@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.875rem;
+  --background: #ffffff;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --primary: #1e293b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #f97316;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1e293b;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html, body {
+    background-color: #f8fafc;
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@layer components {
+  .input {
+    width: 100%;
+    border-radius: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .input:focus {
+    border-color: var(--primary);
+    background: var(--background);
+  }
+}

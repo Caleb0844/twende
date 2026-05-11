@@ -1,0 +1,14 @@
+name = "trailblaze-api"
+main = "src/index.ts"
+compatibility_date = "2024-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trailblaze-db"
+database_id = "112764e0-74e2-460e-9c64-65568fd8c533"
+
+[vars]
+CORS_ORIGIN = "https://twende.pages.dev"
+[observability.logs]
+enabled = true
