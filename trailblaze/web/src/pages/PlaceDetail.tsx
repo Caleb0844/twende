@@ -1,50 +1,58 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Users, CheckCircle, Loader2 } from "lucide-react";
-import { api, type Place } from "@/lib/api";
+import { ArrowLeft, MapPin, Users, CheckCircle, Loader2, Trash2 } from "lucide-react";
+import { api } from "@/lib/api";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { normalizeCategory } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function PlaceDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [place, setPlace] = useState<Place | null>(null);
+  const [place, setPlace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     if (!id) return;
     api.places.get(id)
-  .then((p) => {
-    setPlace(p);
-    setCheckedIn(!!p.checked_in);
-  })
-  .catch((err) => {
-    console.error("Failed to load place:", err);
-    setLoading(false);
-  })
-  .finally(() => setLoading(false));
-  }, [id, navigate]);
+      .then((p) => { setPlace(p); setCheckedIn(!!p.checked_in); })
+      .catch((err) => { console.error("Failed to load place:", err); })
+      .finally(() => setLoading(false));
+  }, [id]);
 
   async function handleCheckIn() {
     if (!user) { navigate("/login"); return; }
     setCheckingIn(true);
     try {
-      const result = await api.checkins.checkIn(id!);
+      const result = await api.checkins.checkIn(id);
       setCheckedIn(true);
       setPlace((prev) => prev ? { ...prev, checkin_count: (prev.checkin_count ?? 0) + 1 } : prev);
       setToast(result.message);
       setTimeout(() => setToast(null), 3000);
-    } catch (err: unknown) {
-      setToast(err instanceof Error ? err.message : "Check-in failed");
+    } catch (err) {
+      setToast(err.message ?? "Check-in failed");
       setTimeout(() => setToast(null), 3000);
     } finally { setCheckingIn(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete "${place.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await api.places.delete(id);
+      navigate("/profile");
+    } catch (err) {
+      setToast(err.message ?? "Failed to delete");
+      setTimeout(() => setToast(null), 3000);
+      setDeleting(false);
+    }
   }
 
   if (loading) return (
@@ -53,17 +61,21 @@ export default function PlaceDetail() {
     </div>
   );
 
-    if (!loading && !place) return (
-      <div className="flex min-h-screen items-center justify-center px-5 text-center">
-        <div>
-          <p className="text-4xl">😕</p>
-          <p className="mt-3 font-bold">Place not found</p>
-          <button onClick={() => navigate("/")} className="mt-4 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">Go Home</button>
-        </div>
+  if (!loading && !place) return (
+    <div className="flex min-h-screen items-center justify-center px-5 text-center">
+      <div>
+        <p className="text-4xl">😕</p>
+        <p className="mt-3 font-bold">Place not found</p>
+        <button onClick={() => navigate("/")}
+          className="mt-4 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">
+          Go Home
+        </button>
       </div>
-);
+    </div>
+  );
 
-  const images = place!.images ?? [];
+  const images = place.images ?? [];
+  const isOwner = user && user.id === place.user_id;
 
   return (
     <div className="pb-24">
@@ -83,7 +95,7 @@ export default function PlaceDetail() {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        {/* Image count badge */}
+        {/* Image count */}
         {images.length > 1 && (
           <div className="absolute right-4 top-4 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
             {activeImg + 1} / {images.length}
@@ -92,7 +104,7 @@ export default function PlaceDetail() {
 
         {/* Thumbnail strip */}
         {images.length > 1 && (
-          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4">
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
             {images.map((img, i) => (
               <button key={i} onClick={() => setActiveImg(i)}
                 className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition ${i === activeImg ? "border-white" : "border-transparent opacity-60"}`}>
@@ -115,7 +127,7 @@ export default function PlaceDetail() {
           <span>{place.county}{place.address ? ` · ${place.address}` : ""}</span>
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="mt-4 flex gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex-1 text-center">
             <p className="text-2xl font-bold">{place.checkin_count ?? 0}</p>
@@ -148,7 +160,7 @@ export default function PlaceDetail() {
 
         {/* Description */}
         {place.description && (
-          <p className="mt-4 text-sm leading-relaxed text-foreground">{place.description}</p>
+          <p className="mt-4 text-sm leading-relaxed">{place.description}</p>
         )}
 
         {/* Check in button */}
@@ -165,6 +177,17 @@ export default function PlaceDetail() {
             </button>
           )}
         </div>
+
+        {/* Delete button — only for owner */}
+        {isOwner && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border-2 border-destructive py-3 text-sm font-semibold text-destructive transition active:scale-[0.99] disabled:opacity-50">
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deleting ? "Deleting..." : "Remove This Place"}
+          </button>
+        )}
       </div>
 
       {/* Toast */}

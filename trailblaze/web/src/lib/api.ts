@@ -83,6 +83,12 @@ export const api = {
       };
     },
 
+    byUser: (userId: string) =>
+      request<{ places: Place[] }>(`/places/user/${userId}`),
+
+    delete: (placeId: string) =>
+      request<{ message: string }>(`/places/${placeId}`, { method: "DELETE" }),
+
     get: async (id: string) => {
       const place = await request<Place>(`/places/${id}`);
       return { ...place, images: parseImages(place.images) };
