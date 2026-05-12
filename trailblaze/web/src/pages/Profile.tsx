@@ -89,7 +89,7 @@ export default function Profile() {
           {myPlaces.map((p) => (
             <article key={p.id} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
               <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60">
-                {p.images?.[0] && <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
+                {p.images?.[0] && <img loading="lazy" src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
                 <button
                   onClick={() => handleDelete(p)}
                   disabled={deleting === p.id}

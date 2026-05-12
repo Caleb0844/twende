@@ -86,7 +86,7 @@ useEffect(() => {
             {filtered.slice(0, 10).map((p) => (
               <Link key={p.id} to={`/place/${p.id}`} className="w-56 shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm block">
                 <div className="aspect-[4/3] overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60">
-                  {p.images?.[0] && <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
+                  {p.images?.[0] && <img loading="lazy" src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
                 </div>
                 <div className="space-y-1.5 p-3">
                   <h3 className="truncate text-sm font-bold">{p.name}</h3>
@@ -110,7 +110,7 @@ useEffect(() => {
               <Link key={p.id} to={`/place/${p.id}`} className="block">
                 <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-primary/80 to-accent/60">
-                    {p.images?.[0] && <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
+                    {p.images?.[0] && <img loading="lazy" src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-sm font-bold">{p.name}</h3>
