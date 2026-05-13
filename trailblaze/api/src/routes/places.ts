@@ -17,6 +17,75 @@ function parseImages(val) {
   return [];
 }
 
+// Extract Cloudinary public_id from URL
+// e.g. https://res.cloudinary.com/dsjttk61k/image/upload/v1234/abcdef.jpg → abcdef
+function getPublicId(url) {
+  try {
+    // Remove everything up to and including /upload/
+    const uploadSplit = url.split("/upload/");
+    if (uploadSplit.length < 2) return null;
+    
+    let afterUpload = uploadSplit[1];
+    
+    // Remove version segment if present (v followed by digits)
+    if (/^v\d+\//.test(afterUpload)) {
+      afterUpload = afterUpload.replace(/^v\d+\//, "");
+    }
+    
+    // Remove file extension
+    return afterUpload.replace(/\.[^/.]+$/, "");
+  } catch { return null; }
+}
+
+// Delete a single image from Cloudinary using signed API
+async function deleteFromCloudinary(publicId, cloudName, apiKey, apiSecret) {
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // Signature string must be exactly: public_id=X&timestamp=Y + secret (no & before secret)
+  const sigStr = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+
+  const msgBuffer = new TextEncoder().encode(sigStr);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", msgBuffer);
+  const signature = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const formData = new FormData();
+  formData.append("public_id", publicId);
+  formData.append("timestamp", String(timestamp));
+  formData.append("api_key", apiKey);
+  formData.append("signature", signature);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+    { method: "POST", body: formData }
+  );
+
+  const result = await res.json();
+  console.log(`Cloudinary delete ${publicId}:`, result.result);
+  return result;
+}
+  const timestamp = Math.floor(Date.now() / 1000);
+  const str = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  const msgBuffer = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", msgBuffer);
+  const signature = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const body = new URLSearchParams({
+    public_id: publicId,
+    timestamp: String(timestamp),
+    api_key: apiKey,
+    signature,
+  });
+
+  await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+    method: "POST",
+    body,
+  });
+
+
 // GET /api/places/nearby
 places.get("/nearby", async (c) => {
   const lat = parseFloat(c.req.query("lat") ?? "");
@@ -46,7 +115,6 @@ places.get("/user/:userId", async (c) => {
   const result = await c.env.DB.prepare(
     "SELECT * FROM places WHERE user_id = ? ORDER BY created_at DESC"
   ).bind(userId).all();
-
   const parsed = result.results.map((p) => ({ ...p, images: parseImages(p.images) }));
   return c.json({ places: parsed });
 });
@@ -109,8 +177,8 @@ places.post("/", authMiddleware, async (c) => {
   }, 201);
 });
 
-// DELETE /api/places/:id
-places.delete("/:id", authMiddleware, async (c) => {
+// PATCH /api/places/:id — edit place
+places.patch("/:id", authMiddleware, async (c) => {
   const userId = c.get("user").sub;
   const placeId = c.req.param("id");
 
@@ -121,13 +189,63 @@ places.delete("/:id", authMiddleware, async (c) => {
   if (!place) return c.json({ error: "Place not found" }, 404);
   if (place.user_id !== userId) return c.json({ error: "Not your place" }, 403);
 
+  const body = await c.req.json();
+  const { name, description, category, county, address } = body;
+
+  await c.env.DB.prepare(
+    `UPDATE places SET
+      name = COALESCE(?, name),
+      description = COALESCE(?, description),
+      category = COALESCE(?, category),
+      county = COALESCE(?, county),
+      address = COALESCE(?, address)
+     WHERE id = ?`
+  ).bind(name ?? null, description ?? null, category ?? null, county ?? null, address ?? null, placeId).run();
+
+  const updated = await c.env.DB.prepare(
+    "SELECT * FROM places WHERE id = ?"
+  ).bind(placeId).first();
+
+  return c.json({ ...updated, images: parseImages(updated.images) });
+});
+
+// DELETE /api/places/:id
+places.delete("/:id", authMiddleware, async (c) => {
+  const userId = c.get("user").sub;
+  const placeId = c.req.param("id");
+
+  const place = await c.env.DB.prepare(
+    "SELECT id, user_id, images FROM places WHERE id = ?"
+  ).bind(placeId).first();
+
+  if (!place) return c.json({ error: "Place not found" }, 404);
+  if (place.user_id !== userId) return c.json({ error: "Not your place" }, 403);
+
+  // Delete images from Cloudinary
+  const images = parseImages(place.images);
+  if (images.length > 0 && c.env.CLOUDINARY_API_KEY && c.env.CLOUDINARY_API_SECRET) {
+    await Promise.allSettled(
+      images.map((url) => {
+        const publicId = getPublicId(url);
+        if (publicId) {
+          return deleteFromCloudinary(
+            publicId,
+            c.env.CLOUDINARY_CLOUD_NAME,
+            c.env.CLOUDINARY_API_KEY,
+            c.env.CLOUDINARY_API_SECRET
+          );
+        }
+      })
+    );
+  }
+
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM checkins WHERE place_id = ?").bind(placeId),
     c.env.DB.prepare("DELETE FROM places WHERE id = ?").bind(placeId),
     c.env.DB.prepare("UPDATE users SET points = points - 10 WHERE id = ?").bind(userId),
   ]);
 
-  return c.json({ message: "Place deleted" });
+  return c.json({ message: "Place and images deleted successfully." });
 });
 
 export default places;

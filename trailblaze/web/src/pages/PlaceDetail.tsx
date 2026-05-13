@@ -1,11 +1,12 @@
 // @ts-nocheck
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Users, CheckCircle, Loader2, Trash2, Navigation, Map } from "lucide-react";
+import { ArrowLeft, MapPin, Users, CheckCircle, Loader2, Trash2, Navigation, Map, Pencil, Expand } from "lucide-react";
 import { api } from "@/lib/api";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { normalizeCategory } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
+import PhotoViewer from "@/components/PhotoViewer";
 
 const CompassModal = lazy(() => import("@/components/CompassModal"));
 
@@ -13,9 +14,7 @@ function getBearing(lat1, lng1, lat2, lng2) {
   const toRad = (d) => (d * Math.PI) / 180;
   const dLng = toRad(lng2 - lng1);
   const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
   return Math.round(((Math.atan2(y, x) * 180) / Math.PI + 360) % 360);
 }
 
@@ -30,6 +29,7 @@ export default function PlaceDetail() {
   const [place, setPlace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -84,6 +84,19 @@ export default function PlaceDetail() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`, "_blank");
   }
 
+  function openViewer(index) {
+    setActiveImg(index);
+    setViewerOpen(true);
+  }
+
+  function nextImage() {
+    setActiveImg((i) => (i + 1) % images.length);
+  }
+
+  function prevImage() {
+    setActiveImg((i) => (i - 1 + images.length) % images.length);
+  }
+
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -110,16 +123,27 @@ export default function PlaceDetail() {
 
   return (
     <div className="pb-24">
+      {/* Fullscreen photo viewer */}
+      {viewerOpen && images.length > 0 && (
+        <PhotoViewer
+          images={images}
+          activeIndex={activeImg}
+          onClose={() => setViewerOpen(false)}
+          onNext={nextImage}
+          onPrev={prevImage}
+        />
+      )}
+
       {/* Compass modal */}
       {showCompass && bearing !== null && (
         <Suspense fallback={null}>
           <CompassModal
-            placeLat={place.lat}
-            placeLng={place.lng}
             bearing={bearing}
             cardinal={cardinal}
             distance={place.distance_km}
             placeName={place.name}
+            placeLat={place.lat}
+            placeLng={place.lng}
             onClose={() => setShowCompass(false)}
           />
         </Suspense>
@@ -127,11 +151,21 @@ export default function PlaceDetail() {
 
       {/* Image gallery */}
       <div className="relative">
-        <div className="aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60">
+        <div
+          className="aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60 cursor-pointer"
+          onClick={() => images.length > 0 && openViewer(activeImg)}
+        >
           {images.length > 0 ? (
             <img loading="lazy" src={images[activeImg]} alt={place.name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-6xl opacity-30">🗺️</div>
+          )}
+
+          {/* Expand hint */}
+          {images.length > 0 && (
+            <div className="absolute bottom-16 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm">
+              <Expand className="h-4 w-4" />
+            </div>
           )}
         </div>
 
@@ -146,10 +180,13 @@ export default function PlaceDetail() {
           </div>
         )}
 
+        {/* Thumbnail strip — tap to switch AND open viewer */}
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
             {images.map((img, i) => (
-              <button key={i} onClick={() => setActiveImg(i)}
+              <button key={i}
+                onClick={() => { setActiveImg(i); }}
+                onDoubleClick={() => openViewer(i)}
                 className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition ${i === activeImg ? "border-white" : "border-transparent opacity-60"}`}>
                 <img loading="lazy" src={img} alt="" className="h-full w-full object-cover" />
               </button>
@@ -195,15 +232,10 @@ export default function PlaceDetail() {
 
         {/* Bearing + Navigate */}
         <div className="mt-4 flex gap-3">
-          {/* Bearing — clickable to open compass */}
-          <button
-            onClick={() => bearing !== null && setShowCompass(true)}
-            className="flex flex-1 items-center gap-3 rounded-2xl border border-border bg-card p-4 transition active:scale-[0.98]"
-          >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10"
-              style={{ transform: bearing !== null ? `rotate(${bearing}deg)` : "none" }}
-            >
+          <button onClick={() => bearing !== null && setShowCompass(true)}
+            className="flex flex-1 items-center gap-3 rounded-2xl border border-border bg-card p-4 transition active:scale-[0.98]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10"
+              style={{ transform: bearing !== null ? `rotate(${bearing}deg)` : "none" }}>
               <Navigation className="h-5 w-5 text-primary" />
             </div>
             <div className="text-left">
@@ -216,7 +248,6 @@ export default function PlaceDetail() {
             </div>
           </button>
 
-          {/* Navigate */}
           <button onClick={openGoogleMaps}
             className="flex flex-1 items-center gap-3 rounded-2xl border border-border bg-card p-4 transition active:scale-[0.98]">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
@@ -229,14 +260,12 @@ export default function PlaceDetail() {
           </button>
         </div>
 
-        {/* Added by */}
         {place.added_by && (
           <p className="mt-4 text-sm text-muted-foreground">
             Added by <span className="font-semibold text-foreground">@{place.added_by}</span>
           </p>
         )}
 
-        {/* Description */}
         {place.description && (
           <p className="mt-4 text-sm leading-relaxed">{place.description}</p>
         )}
@@ -256,13 +285,19 @@ export default function PlaceDetail() {
           )}
         </div>
 
-        {/* Delete — owner only */}
+        {/* Owner actions */}
         {isOwner && (
-          <button onClick={handleDelete} disabled={deleting}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border-2 border-destructive py-3 text-sm font-semibold text-destructive transition active:scale-[0.99] disabled:opacity-50">
-            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {deleting ? "Deleting..." : "Remove This Place"}
-          </button>
+          <div className="mt-4 flex gap-3">
+            <button onClick={() => navigate(`/edit/${id}`)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-primary py-3 text-sm font-semibold text-primary transition active:scale-[0.99]">
+              <Pencil className="h-4 w-4" /> Edit
+            </button>
+            <button onClick={handleDelete} disabled={deleting}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-destructive py-3 text-sm font-semibold text-destructive transition active:scale-[0.99] disabled:opacity-50">
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? "..." : "Remove"}
+            </button>
+          </div>
         )}
       </div>
 

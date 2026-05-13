@@ -89,6 +89,18 @@ export const api = {
     delete: (placeId: string) =>
       request<{ message: string }>(`/places/${placeId}`, { method: "DELETE" }),
 
+            patch: (placeId: string, data: {
+          name?: string;
+          description?: string;
+          category?: string;
+          county?: string;
+          address?: string;
+        }) =>
+          request<Place>(`/places/${placeId}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          }),
+            
     get: async (id: string) => {
       const place = await request<Place>(`/places/${id}`);
       return { ...place, images: parseImages(place.images) };
@@ -116,7 +128,7 @@ export const api = {
         `/checkins/${placeId}`,
         { method: "POST" }
       ),
-    mine: () => request<{ checkins: Place[] }>("/checkins/my"),
+    mine: () => request<{ checkins: (Place & { checked_in_at: string })[] }>("/checkins/my"),
   },
 };
 

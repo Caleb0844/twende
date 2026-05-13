@@ -10,5 +10,7 @@ database_id = "112764e0-74e2-460e-9c64-65568fd8c533"
 
 [vars]
 CORS_ORIGIN = "https://twende.pages.dev"
+CLOUDINARY_CLOUD_NAME = "dsjttk61k"
+
 [observability.logs]
 enabled = true
