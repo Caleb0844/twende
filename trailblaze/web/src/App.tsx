@@ -8,6 +8,7 @@ const AddPlace = lazy(() => import("@/pages/AddPlace"));
 const EditPlace = lazy(() => import("@/pages/EditPlace"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Auth = lazy(() => import("@/pages/Auth"));
+const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
 const Rankings = lazy(() => import("@/pages/Rankings"));
 const PlaceDetail = lazy(() => import("@/pages/PlaceDetail"));
 const MyPlaces = lazy(() => import("@/pages/MyPlaces"));
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/my-places" element={<MyPlaces />} />
             <Route path="/login" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/rankings" element={<Rankings />} />
             <Route path="/place/:id" element={<PlaceDetail />} />
           </Routes>

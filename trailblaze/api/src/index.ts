@@ -6,6 +6,7 @@ import { authMiddleware } from "./middleware/auth";
 import users from "./routes/users";
 import places from "./routes/places";
 import checkins from "./routes/checkins";
+import auth from "./routes/auth";
 
 const app = new Hono();
 
@@ -20,18 +21,19 @@ app.use("*", async (c, next) => {
 
   return cors({
     origin: allowed ? origin : "https://twende.pages.dev",
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   })(c, next);
 });
 
-app.get("/", (c) => c.json({ status: "ok", app: "Trailblaze API", version: "1.0.0" }));
+app.get("/", (c) => c.json({ status: "ok", app: "Trailblaze API", version: "2.0.0" }));
 
-// Auth middleware BEFORE routes
+// Auth middleware BEFORE protected routes
 app.use("/api/users/me", authMiddleware);
 app.use("/api/checkins/*", authMiddleware);
 
 // Routes
+app.route("/api/auth", auth);
 app.route("/api/users", users);
 app.route("/api/places", places);
 app.route("/api/checkins", checkins);

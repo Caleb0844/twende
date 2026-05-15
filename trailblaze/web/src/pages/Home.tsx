@@ -1,18 +1,19 @@
-import { Link } from "react-router-dom";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { api, type Place } from "@/lib/api";
 import { normalizeCategory } from "@/lib/data";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export default function Home() {
-  
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [locError, setLocError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const location = useLocation();
+  const lastRefresh = (location.state as any)?.refresh;
 
   const fetchNearby = useCallback(async (lat: number, lng: number) => {
     setLoading(true);
@@ -21,16 +22,19 @@ export default function Home() {
       setPlaces(places);
     } catch { } finally { setLoading(false); }
   }, []);
-  const location = useLocation();
 
-useEffect(() => {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setCoords(c); fetchNearby(c.lat, c.lng); },
-      () => {}
-    );
-  }
-}, [fetchNearby, location.state]);
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setCoords(c);
+          fetchNearby(c.lat, c.lng);
+        },
+        () => {}
+      );
+    }
+  }, [fetchNearby, lastRefresh]);
 
   function useMyLocation() {
     if (!navigator.geolocation) { setLocError("Geolocation not supported"); return; }
@@ -40,15 +44,6 @@ useEffect(() => {
       () => { setLocError("Could not get your location."); setLoading(false); }
     );
   }
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => { const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setCoords(c); fetchNearby(c.lat, c.lng); },
-        () => {}
-      );
-    }
-  }, [fetchNearby]);
 
   const filtered = places.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -77,14 +72,19 @@ useEffect(() => {
       </button>
 
       {locError && <p className="mt-2 text-center text-xs text-destructive">{locError}</p>}
-      {coords && !loading && <p className="mt-1 text-center text-xs text-muted-foreground">Showing places within 50km · {filtered.length} found</p>}
+      {coords && !loading && (
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          Showing places within 50km · {filtered.length} found
+        </p>
+      )}
 
       {filtered.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-bold">Nearby Places</h2>
           <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 no-scrollbar">
             {filtered.slice(0, 10).map((p) => (
-              <Link key={p.id} to={`/place/${p.id}`} className="w-56 shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm block">
+              <Link key={p.id} to={`/place/${p.id}`}
+                className="w-56 shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm block">
                 <div className="aspect-[4/3] overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60">
                   {p.images?.[0] && <img loading="lazy" src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />}
                 </div>
@@ -119,7 +119,11 @@ useEffect(() => {
                       <span className="text-[11px] text-muted-foreground">{p.county}</span>
                     </div>
                   </div>
-                  {p.distance_km != null && <span className="text-xs font-semibold text-muted-foreground">{p.distance_km.toFixed(1)} km</span>}
+                  {p.distance_km != null && (
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {p.distance_km.toFixed(1)} km
+                    </span>
+                  )}
                 </div>
               </Link>
             ))}

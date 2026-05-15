@@ -7,6 +7,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { normalizeCategory } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
 import PhotoViewer from "@/components/PhotoViewer";
+import AuthSheet from "@/components/AuthSheet";
 
 const CompassModal = lazy(() => import("@/components/CompassModal"));
 
@@ -36,6 +37,7 @@ export default function PlaceDetail() {
   const [toast, setToast] = useState(null);
   const [userCoords, setUserCoords] = useState(null);
   const [showCompass, setShowCompass] = useState(false);
+  const [showAuthSheet, setShowAuthSheet] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -53,7 +55,7 @@ export default function PlaceDetail() {
   }, [id]);
 
   async function handleCheckIn() {
-    if (!user) { navigate("/login"); return; }
+    if (!user) { setShowAuthSheet(true); return; }
     setCheckingIn(true);
     try {
       const result = await api.checkins.checkIn(id);
@@ -84,18 +86,9 @@ export default function PlaceDetail() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`, "_blank");
   }
 
-  function openViewer(index) {
-    setActiveImg(index);
-    setViewerOpen(true);
-  }
-
-  function nextImage() {
-    setActiveImg((i) => (i + 1) % images.length);
-  }
-
-  function prevImage() {
-    setActiveImg((i) => (i - 1 + images.length) % images.length);
-  }
+  function openViewer(index) { setActiveImg(index); setViewerOpen(true); }
+  function nextImage() { setActiveImg((i) => (i + 1) % images.length); }
+  function prevImage() { setActiveImg((i) => (i - 1 + images.length) % images.length); }
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center">
@@ -123,45 +116,38 @@ export default function PlaceDetail() {
 
   return (
     <div className="pb-24">
+      {/* Auth sheet for unauthenticated check-in */}
+      {showAuthSheet && (
+        <AuthSheet
+          message="Sign in to mark this place as visited and earn 5 points! ✅"
+          onClose={() => setShowAuthSheet(false)}
+        />
+      )}
+
       {/* Fullscreen photo viewer */}
       {viewerOpen && images.length > 0 && (
-        <PhotoViewer
-          images={images}
-          activeIndex={activeImg}
-          onClose={() => setViewerOpen(false)}
-          onNext={nextImage}
-          onPrev={prevImage}
-        />
+        <PhotoViewer images={images} activeIndex={activeImg}
+          onClose={() => setViewerOpen(false)} onNext={nextImage} onPrev={prevImage} />
       )}
 
       {/* Compass modal */}
       {showCompass && bearing !== null && (
         <Suspense fallback={null}>
-          <CompassModal
-            bearing={bearing}
-            cardinal={cardinal}
-            distance={place.distance_km}
-            placeName={place.name}
-            placeLat={place.lat}
-            placeLng={place.lng}
-            onClose={() => setShowCompass(false)}
-          />
+          <CompassModal bearing={bearing} cardinal={cardinal} distance={place.distance_km}
+            placeName={place.name} placeLat={place.lat} placeLng={place.lng}
+            onClose={() => setShowCompass(false)} />
         </Suspense>
       )}
 
       {/* Image gallery */}
       <div className="relative">
-        <div
-          className="aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60 cursor-pointer"
-          onClick={() => images.length > 0 && openViewer(activeImg)}
-        >
+        <div className="aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/60 cursor-pointer"
+          onClick={() => images.length > 0 && openViewer(activeImg)}>
           {images.length > 0 ? (
             <img loading="lazy" src={images[activeImg]} alt={place.name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-6xl opacity-30">🗺️</div>
           )}
-
-          {/* Expand hint */}
           {images.length > 0 && (
             <div className="absolute bottom-16 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm">
               <Expand className="h-4 w-4" />
@@ -180,13 +166,10 @@ export default function PlaceDetail() {
           </div>
         )}
 
-        {/* Thumbnail strip — tap to switch AND open viewer */}
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
             {images.map((img, i) => (
-              <button key={i}
-                onClick={() => { setActiveImg(i); }}
-                onDoubleClick={() => openViewer(i)}
+              <button key={i} onClick={() => setActiveImg(i)} onDoubleClick={() => openViewer(i)}
                 className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition ${i === activeImg ? "border-white" : "border-transparent opacity-60"}`}>
                 <img loading="lazy" src={img} alt="" className="h-full w-full object-cover" />
               </button>
@@ -240,11 +223,9 @@ export default function PlaceDetail() {
             </div>
             <div className="text-left">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bearing</p>
-              {bearing !== null ? (
-                <p className="text-base font-bold">{cardinal} · {bearing}°</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Allow location</p>
-              )}
+              {bearing !== null
+                ? <p className="text-base font-bold">{cardinal} · {bearing}°</p>
+                : <p className="text-sm text-muted-foreground">Allow location</p>}
             </div>
           </button>
 
@@ -262,7 +243,10 @@ export default function PlaceDetail() {
 
         {place.added_by && (
           <p className="mt-4 text-sm text-muted-foreground">
-            Added by <span className="font-semibold text-foreground">@{place.added_by}</span>
+            Added by <span className="font-semibold text-foreground">{place.added_by}</span>
+            {place.added_by_username && (
+              <span className="text-accent"> · @{place.added_by_username}</span>
+            )}
           </p>
         )}
 

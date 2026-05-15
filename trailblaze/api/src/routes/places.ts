@@ -65,26 +65,6 @@ async function deleteFromCloudinary(publicId, cloudName, apiKey, apiSecret) {
   console.log(`Cloudinary delete ${publicId}:`, result.result);
   return result;
 }
-  const timestamp = Math.floor(Date.now() / 1000);
-  const str = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-  const msgBuffer = new TextEncoder().encode(str);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", msgBuffer);
-  const signature = Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  const body = new URLSearchParams({
-    public_id: publicId,
-    timestamp: String(timestamp),
-    api_key: apiKey,
-    signature,
-  });
-
-  await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
-    method: "POST",
-    body,
-  });
-
 
 // GET /api/places/nearby
 places.get("/nearby", async (c) => {

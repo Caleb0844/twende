@@ -1,20 +1,19 @@
-import { api, type User } from "@/lib/api";
+import { API_URL } from "@/lib/api";
 
-// Simple reactive store without zustand (avoids SSR issues)
+export type User = {
+  id: string;
+  email: string;
+  username: string;
+  public_username: string | null;
+  personal_username: string | null;
+  points: number;
+  email_verified: boolean;
+};
+
 type Listener = () => void;
-
-type AuthState = {
-  user: User | null;
-  token: string | null;
-  isLoading: boolean;
-};
-
+type AuthState = { user: User | null; token: string | null; isLoading: boolean; };
 const listeners = new Set<Listener>();
-let state: AuthState = {
-  user: null,
-  token: null,
-  isLoading: false,
-};
+let state: AuthState = { user: null, token: null, isLoading: false };
 
 function setState(partial: Partial<AuthState>) {
   state = { ...state, ...partial };
@@ -26,9 +25,7 @@ export function subscribe(listener: Listener) {
   return () => listeners.delete(listener);
 }
 
-export function getState() {
-  return state;
-}
+export function getState() { return state; }
 
 export async function initAuth() {
   if (typeof window === "undefined") return;
@@ -36,7 +33,11 @@ export async function initAuth() {
   if (!token) return;
   setState({ isLoading: true });
   try {
-    const user = await api.auth.me();
+    const res = await fetch(`${API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Invalid token");
+    const user = await res.json();
     setState({ user, token, isLoading: false });
   } catch {
     localStorage.removeItem("token");
@@ -44,18 +45,18 @@ export async function initAuth() {
   }
 }
 
-export async function login(email: string, password: string) {
+export async function login(emailOrUsername: string, password: string, rememberMe = true) {
   setState({ isLoading: true });
-  const { token, user } = await api.auth.login(email, password);
-  localStorage.setItem("token", token);
-  setState({ user, token, isLoading: false });
-}
-
-export async function register(username: string, email: string, password: string) {
-  setState({ isLoading: true });
-  const { token, user } = await api.auth.register(username, email, password);
-  localStorage.setItem("token", token);
-  setState({ user, token, isLoading: false });
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ emailOrUsername, password, rememberMe }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setState({ isLoading: false }); throw new Error(data.error); }
+  localStorage.setItem("token", data.token);
+  setState({ user: data.user, token: data.token, isLoading: false });
+  return data;
 }
 
 export function logout() {

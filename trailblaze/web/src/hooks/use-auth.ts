@@ -12,7 +12,6 @@ export function useAuth() {
   return {
     ...state,
     login: auth.login,
-    register: auth.register,
     logout: auth.logout,
   };
 }
