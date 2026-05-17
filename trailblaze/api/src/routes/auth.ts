@@ -92,29 +92,27 @@ auth.post("/register", async (c) => {
 
 // POST /api/auth/set-usernames — step 2: set usernames after verification
 auth.post("/set-usernames", async (c) => {
-  const { user_id, public_username, personal_username } = await c.req.json();
+  const { user_id, display_name, username } = await c.req.json();
 
-  if (!user_id || !public_username || !personal_username)
+  if (!user_id || !display_name || !username)
     return c.json({ error: "All fields required" }, 400);
 
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(public_username))
-    return c.json({ error: "Public username must be 3-20 characters, letters/numbers/underscores only" }, 400);
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username))
+    return c.json({ error: "Username must be 3-20 characters, letters/numbers/underscores only" }, 400);
 
-  // Check public username unique
   const taken = await c.env.DB.prepare(
-    "SELECT id FROM users WHERE public_username = ? AND id != ?"
-  ).bind(public_username, user_id).first();
-  if (taken) return c.json({ error: "Public username already taken" }, 409);
+    "SELECT id FROM users WHERE username = ? AND id != ?"
+  ).bind(username, user_id).first();
+  if (taken) return c.json({ error: "Username already taken" }, 409);
 
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user_id).first();
   if (!user) return c.json({ error: "User not found" }, 404);
-  if (!user.email_verified) return c.json({ error: "Please verify your email first" }, 403);
 
   await c.env.DB.prepare(
-    "UPDATE users SET public_username = ?, personal_username = ?, username = ? WHERE id = ?"
-  ).bind(public_username, personal_username, public_username, user_id).run();
+    "UPDATE users SET username = ?, public_username = ?, personal_username = ? WHERE id = ?"
+  ).bind(username, display_name, display_name, user_id).run();
 
-  const token = await signJWT({ sub: user_id, username: public_username }, c.env.JWT_SECRET);
+  const token = await signJWT({ sub: user_id, username }, c.env.JWT_SECRET);
   const updatedUser = await c.env.DB.prepare(
     "SELECT id, email, username, public_username, personal_username, points, email_verified FROM users WHERE id = ?"
   ).bind(user_id).first();
